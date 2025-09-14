@@ -97,15 +97,18 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
           newSelected.add(item.medicineId);
           newRestockCart.push({
             medicine: item.medicine,
-            quantity: item.suggestedQuantity,
-            batchNumber: `BATCH-${Date.now()}-${item.medicineId.slice(-4)}`,
-            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-            purchasePrice: 0,
-            sellingPrice: 0,
-            mrp: 0,
-            minStock: 10,
-            maxStock: 500,
-            supplierId: 'DEFAULT'
+            batches: [{
+              id: crypto.randomUUID(),
+              batchNumber: `BATCH-${Date.now()}-${item.medicineId.slice(-4)}`,
+              quantity: item.suggestedQuantity,
+              expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+              purchasePrice: 0,
+              sellingPrice: 0,
+              mrp: 0,
+              minStock: 10,
+              maxStock: 500,
+              supplierId: 'DEFAULT'
+            }]
           });
         });
         
