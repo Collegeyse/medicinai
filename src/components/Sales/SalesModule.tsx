@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Plus, ShoppingCart, Trash2, Calculator } from 'lucide-react';
+import { Search, Plus, ShoppingCart, Trash2, Calculator, Package } from 'lucide-react';
 import { db } from '../../database';
 import { Medicine, Batch, Sale, SaleItem } from '../../types';
 import { FEFOService } from '../../services/fefo';
