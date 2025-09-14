@@ -8,6 +8,7 @@ import { LowStockPage } from './components/Inventory/LowStockPage';
 import { NotificationToast } from './components/Notifications/NotificationToast';
 import { initializeDatabase } from './database';
 import { usePharmacyStore } from './store';
+import { RestockManagementPage } from './components/Inventory/RestockManagementPage';
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -36,6 +37,8 @@ function App() {
         return <Dashboard />;
       case 'inventory':
         return <InventoryList />;
+      case 'restock':
+        return <RestockManagementPage onBack={() => setActiveTab('inventory')} />;
       case 'sales':
         return <SalesModule />;
       case 'expiry':

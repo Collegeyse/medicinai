@@ -8,7 +8,8 @@ import {
   Settings,
   X,
   TrendingDown,
-  Shield
+  Shield,
+  PackagePlus
 } from 'lucide-react';
 import { usePharmacyStore } from '../../store';
 
@@ -23,6 +24,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: Home },
     { id: 'inventory', label: 'Inventory', icon: Package },
+    { id: 'restock', label: 'Restock', icon: PackagePlus },
     { id: 'sales', label: 'Sales', icon: ShoppingCart },
     { id: 'expiry', label: 'Expiry Alert', icon: AlertTriangle },
     { id: 'low-stock', label: 'Low Stock', icon: TrendingDown },
