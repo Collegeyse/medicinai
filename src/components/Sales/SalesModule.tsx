@@ -170,7 +170,9 @@ export const SalesModule: React.FC = () => {
       setCompletedSaleItems(cartItems.map(item => ({
         medicine: item.medicine,
         quantitySold: item.quantity,
-        batch: item.batch
+        batch: item.batch,
+        selected: true, // Default to selected
+        restockQuantity: Math.max(item.quantity * 2, 50) // Default restock quantity
       })));
       
       setCustomerName('');
@@ -193,13 +195,15 @@ export const SalesModule: React.FC = () => {
 
   const handleAddToRestock = () => {
     // Store items in localStorage for restock page to pick up
-    const restockItems = completedSaleItems.map(item => ({
-      medicineId: item.medicine.id,
-      medicineName: item.medicine.brandName || item.medicine.name,
-      quantitySold: item.quantitySold,
-      suggestedQuantity: Math.max(item.quantitySold * 2, 50), // Suggest 2x sold quantity or minimum 50
-      medicine: item.medicine
-    }));
+    const restockItems = completedSaleItems
+      .filter(item => item.selected !== false)
+      .map(item => ({
+        medicineId: item.medicine.id,
+        medicineName: item.medicine.brandName || item.medicine.name,
+        quantitySold: item.quantitySold,
+        suggestedQuantity: item.restockQuantity || Math.max(item.quantitySold * 2, 50),
+        medicine: item.medicine
+      }));
     
     localStorage.setItem('pendingRestockItems', JSON.stringify(restockItems));
     addNotification('info', `${restockItems.length} medicines added to restock queue`);
@@ -464,7 +468,7 @@ export const SalesModule: React.FC = () => {
       {/* Restock Prompt Modal */}
       {showRestockPrompt && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                 <Package className="w-5 h-5 text-blue-600" />
@@ -477,18 +481,89 @@ export const SalesModule: React.FC = () => {
             
             <div className="mb-6">
               <p className="text-gray-700 mb-3">
-                Would you like to add the sold medicines to your restock list for future ordering?
+                Select medicines and quantities to add to your restock list:
               </p>
               
-              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                <h4 className="font-medium text-blue-900 mb-2">Sold Items:</h4>
-                <div className="space-y-1">
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                <div className="flex items-center justify-between mb-3">
+                  <h4 className="font-medium text-blue-900">Sold Items:</h4>
+                  <div className="flex items-center space-x-4">
+                    <button
+                      onClick={() => {
+                        const allSelected = completedSaleItems.every(item => item.selected !== false);
+                        setCompletedSaleItems(prev => 
+                          prev.map(item => ({ ...item, selected: !allSelected }))
+                        );
+                      }}
+                      className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      {completedSaleItems.every(item => item.selected !== false) ? 'Deselect All' : 'Select All'}
+                    </button>
+                  </div>
+                </div>
+                <div className="space-y-3">
                   {completedSaleItems.map((item, index) => (
-                    <div key={index} className="flex justify-between text-sm">
-                      <span className="text-blue-800">{item.medicine.brandName || item.medicine.name}</span>
-                      <span className="text-blue-600 font-medium">{item.quantitySold} units</span>
+                    <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg border border-blue-200">
+                      <div className="flex items-center space-x-3">
+                        <input
+                          type="checkbox"
+                          checked={item.selected !== false}
+                          onChange={(e) => {
+                            setCompletedSaleItems(prev => 
+                              prev.map((saleItem, i) => 
+                                i === index ? { ...saleItem, selected: e.target.checked } : saleItem
+                              )
+                            );
+                          }}
+                          className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                        />
+                        <div>
+                          <span className="font-medium text-blue-900">
+                            {item.medicine.brandName || item.medicine.name}
+                          </span>
+                          <p className="text-xs text-blue-700">{item.medicine.manufacturer}</p>
+                          <p className="text-xs text-blue-600">Sold: {item.quantitySold} units</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <label className="text-sm font-medium text-blue-800">Restock:</label>
+                        <input
+                          type="number"
+                          min="1"
+                          max="1000"
+                          value={item.restockQuantity || Math.max(item.quantitySold * 2, 50)}
+                          onChange={(e) => {
+                            const quantity = parseInt(e.target.value) || 1;
+                            setCompletedSaleItems(prev => 
+                              prev.map((saleItem, i) => 
+                                i === index ? { ...saleItem, restockQuantity: quantity } : saleItem
+                              )
+                            );
+                          }}
+                          className="w-20 px-2 py-1 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <span className="text-sm text-blue-600">units</span>
+                      </div>
                     </div>
                   ))}
+                </div>
+                
+                {/* Summary */}
+                <div className="mt-4 pt-3 border-t border-blue-200">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-700">Selected Items:</span>
+                    <span className="font-medium text-blue-900">
+                      {completedSaleItems.filter(item => item.selected !== false).length} medicines
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm mt-1">
+                    <span className="text-blue-700">Total Restock Quantity:</span>
+                    <span className="font-medium text-blue-900">
+                      {completedSaleItems
+                        .filter(item => item.selected !== false)
+                        .reduce((sum, item) => sum + (item.restockQuantity || Math.max(item.quantitySold * 2, 50)), 0)} units
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -502,10 +577,11 @@ export const SalesModule: React.FC = () => {
               </button>
               <button
                 onClick={handleAddToRestock}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                disabled={completedSaleItems.filter(item => item.selected !== false).length === 0}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
               >
                 <Package className="w-4 h-4" />
-                <span>Add to Restock</span>
+                <span>Add Selected to Restock</span>
               </button>
             </div>
           </div>
