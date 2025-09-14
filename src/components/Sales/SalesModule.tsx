@@ -18,6 +18,8 @@ export const SalesModule: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'CASH' | 'CARD' | 'UPI' | 'CREDIT'>('CASH');
   const [discount, setDiscount] = useState(0);
   const [processing, setProcessing] = useState(false);
+  const [showRestockPrompt, setShowRestockPrompt] = useState(false);
+  const [completedSaleItems, setCompletedSaleItems] = useState<any[]>([]);
   
   const { addNotification, cartItems, addToCart, removeFromCart, clearCart } = usePharmacyStore();
 
@@ -163,6 +165,14 @@ export const SalesModule: React.FC = () => {
 
       // Clear form
       clearCart();
+      
+      // Store completed sale items for restock prompt
+      setCompletedSaleItems(cartItems.map(item => ({
+        medicine: item.medicine,
+        quantitySold: item.quantity,
+        batch: item.batch
+      })));
+      
       setCustomerName('');
       setCustomerPhone('');
       setPrescriptionNumber('');
@@ -170,12 +180,36 @@ export const SalesModule: React.FC = () => {
       setDiscount(0);
 
       addNotification('success', `Sale completed! Invoice: ${invoiceNumber}`);
+      
+      // Show restock prompt
+      setShowRestockPrompt(true);
     } catch (error) {
       console.error('Error processing sale:', error);
       addNotification('error', 'Failed to process sale');
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleAddToRestock = () => {
+    // Store items in localStorage for restock page to pick up
+    const restockItems = completedSaleItems.map(item => ({
+      medicineId: item.medicine.id,
+      medicineName: item.medicine.brandName || item.medicine.name,
+      quantitySold: item.quantitySold,
+      suggestedQuantity: Math.max(item.quantitySold * 2, 50), // Suggest 2x sold quantity or minimum 50
+      medicine: item.medicine
+    }));
+    
+    localStorage.setItem('pendingRestockItems', JSON.stringify(restockItems));
+    addNotification('info', `${restockItems.length} medicines added to restock queue`);
+    setShowRestockPrompt(false);
+    setCompletedSaleItems([]);
+  };
+
+  const handleSkipRestock = () => {
+    setShowRestockPrompt(false);
+    setCompletedSaleItems([]);
   };
 
   const { subtotal, discountAmount, gstAmount, total } = calculateTotals();
@@ -426,6 +460,57 @@ export const SalesModule: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Restock Prompt Modal */}
+      {showRestockPrompt && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                <Package className="w-5 h-5 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Restock Suggestion</h3>
+                <p className="text-sm text-gray-600">Sale completed successfully!</p>
+              </div>
+            </div>
+            
+            <div className="mb-6">
+              <p className="text-gray-700 mb-3">
+                Would you like to add the sold medicines to your restock list for future ordering?
+              </p>
+              
+              <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-2">Sold Items:</h4>
+                <div className="space-y-1">
+                  {completedSaleItems.map((item, index) => (
+                    <div key={index} className="flex justify-between text-sm">
+                      <span className="text-blue-800">{item.medicine.brandName || item.medicine.name}</span>
+                      <span className="text-blue-600 font-medium">{item.quantitySold} units</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={handleSkipRestock}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleAddToRestock}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
+                <Package className="w-4 h-4" />
+                <span>Add to Restock</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

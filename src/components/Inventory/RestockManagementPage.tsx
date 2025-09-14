@@ -76,7 +76,45 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
 
   useEffect(() => {
     loadMedicines();
+    loadPendingRestockItems();
   }, []);
+
+  const loadPendingRestockItems = () => {
+    const pendingItems = localStorage.getItem('pendingRestockItems');
+    if (pendingItems) {
+      try {
+        const items = JSON.parse(pendingItems);
+        // Auto-select medicines that were sold
+        const newSelected = new Set<string>();
+        const newRestockCart: RestockItem[] = [];
+        
+        items.forEach((item: any) => {
+          newSelected.add(item.medicineId);
+          newRestockCart.push({
+            medicine: item.medicine,
+            quantity: item.suggestedQuantity,
+            batchNumber: `BATCH-${Date.now()}-${item.medicineId.slice(-4)}`,
+            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            purchasePrice: 0,
+            sellingPrice: 0,
+            mrp: 0,
+            minStock: 10,
+            maxStock: 500,
+            supplierId: 'DEFAULT'
+          });
+        });
+        
+        setSelectedMedicines(newSelected);
+        setRestockCart(newRestockCart);
+        
+        // Clear the pending items
+        localStorage.removeItem('pendingRestockItems');
+        addNotification('info', `Pre-loaded ${items.length} medicines from recent sale`);
+      } catch (error) {
+        console.error('Error loading pending restock items:', error);
+      }
+    }
+  };
 
   const loadMedicines = async () => {
     try {
