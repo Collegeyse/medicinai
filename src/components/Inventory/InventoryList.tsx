@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Package, AlertTriangle, TrendingDown, Calendar } from 'lucide-react';
+import { Plus, Package, AlertTriangle, TrendingDown, Calendar, Edit3, Trash2, MoreVertical } from 'lucide-react';
 import { db } from '../../database';
 import { Medicine, Batch } from '../../types';
 import { usePharmacyStore } from '../../store';
 import { AddMedicinePage } from './AddMedicinePage';
+import { EditMedicineModal } from './EditMedicineModal';
 import { format } from 'date-fns';
 
 interface MedicineWithStock {
@@ -18,6 +19,9 @@ export const InventoryList: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAddPage, setShowAddPage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<Medicine | null>(null);
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const { addNotification } = usePharmacyStore();
 
   const fetchMedicinesWithStock = async () => {
@@ -66,6 +70,42 @@ export const InventoryList: React.FC = () => {
   const handleMedicineAdded = () => {
     fetchMedicinesWithStock(); // Refresh the list
     setShowAddPage(false);
+  };
+
+  const handleEditMedicine = (medicine: Medicine) => {
+    setEditingMedicine(medicine);
+    setOpenDropdown(null);
+  };
+
+  const handleDeleteMedicine = async (medicine: Medicine) => {
+    try {
+      // Check if medicine has any batches with stock
+      const batches = await db.batches
+        .where('medicineId')
+        .equals(medicine.id)
+        .filter(batch => batch.currentStock > 0)
+        .toArray();
+      
+      if (batches.length > 0) {
+        addNotification('error', 'Cannot delete medicine with existing stock. Please clear all batches first.');
+        return;
+      }
+
+      // Delete all batches for this medicine
+      await db.batches.where('medicineId').equals(medicine.id).delete();
+      
+      // Delete the medicine
+      await db.medicines.delete(medicine.id);
+      
+      addNotification('success', `Medicine ${medicine.brandName || medicine.name} deleted successfully`);
+      fetchMedicinesWithStock();
+    } catch (error) {
+      console.error('Error deleting medicine:', error);
+      addNotification('error', 'Failed to delete medicine');
+    } finally {
+      setShowDeleteConfirm(null);
+      setOpenDropdown(null);
+    }
   };
 
   const getStockStatus = (item: MedicineWithStock) => {
@@ -247,6 +287,36 @@ export const InventoryList: React.FC = () => {
                     </div>
                     
                     <div className="text-right ml-6">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="relative">
+                          <button
+                            onClick={() => setOpenDropdown(openDropdown === item.medicine.id ? null : item.medicine.id)}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          >
+                            <MoreVertical className="w-4 h-4 text-gray-600" />
+                          </button>
+                          
+                          {openDropdown === item.medicine.id && (
+                            <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
+                              <button
+                                onClick={() => handleEditMedicine(item.medicine)}
+                                className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center space-x-2"
+                              >
+                                <Edit3 className="w-3 h-3" />
+                                <span>Edit</span>
+                              </button>
+                              <button
+                                onClick={() => setShowDeleteConfirm(item.medicine)}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 flex items-center space-x-2"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>Delete</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
                       <div className="bg-gray-50 rounded-lg p-4 min-w-[120px]">
                         <p className="text-sm text-gray-600 mb-1">Total Stock</p>
                         <p className={`text-2xl font-bold ${
@@ -264,6 +334,55 @@ export const InventoryList: React.FC = () => {
                 </div>
               );
             })}
+          </div>
+        </div>
+      )}
+
+      {/* Edit Medicine Modal */}
+      {editingMedicine && (
+        <EditMedicineModal
+          medicine={editingMedicine}
+          onClose={() => setEditingMedicine(null)}
+          onMedicineUpdated={() => {
+            fetchMedicinesWithStock();
+            setEditingMedicine(null);
+          }}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Delete Medicine</h3>
+                <p className="text-sm text-gray-600">This action cannot be undone</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-700 mb-6">
+              Are you sure you want to delete <strong>{showDeleteConfirm.brandName || showDeleteConfirm.name}</strong>? 
+              This will also delete all associated batches and cannot be undone.
+            </p>
+            
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setShowDeleteConfirm(null)}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteMedicine(showDeleteConfirm)}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete Medicine
+              </button>
+            </div>
           </div>
         </div>
       )}
