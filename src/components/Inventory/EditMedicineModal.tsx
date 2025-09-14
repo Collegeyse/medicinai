@@ -4,8 +4,9 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { db } from '../../database';
-import { Medicine } from '../../types';
+import { Medicine, Batch } from '../../types';
 import { usePharmacyStore } from '../../store';
+import { format } from 'date-fns';
 
 const editMedicineSchema = z.object({
   name: z.string().min(1, 'Medicine name is required'),
@@ -34,8 +35,32 @@ export const EditMedicineModal: React.FC<EditMedicineModalProps> = ({
   onMedicineUpdated
 }) => {
   const [loading, setLoading] = useState(false);
+  const [batches, setBatches] = useState<Batch[]>([]);
+  const [editingBatches, setEditingBatches] = useState<Record<string, Batch>>({});
   const { addNotification } = usePharmacyStore();
 
+  useEffect(() => {
+    loadBatches();
+  }, [medicine.id]);
+
+  const loadBatches = async () => {
+    try {
+      const medicineBatches = await db.batches
+        .where('medicineId')
+        .equals(medicine.id)
+        .toArray();
+      setBatches(medicineBatches);
+      
+      // Initialize editing state
+      const editingState: Record<string, Batch> = {};
+      medicineBatches.forEach(batch => {
+        editingState[batch.id] = { ...batch };
+      });
+      setEditingBatches(editingState);
+    } catch (error) {
+      console.error('Error loading batches:', error);
+    }
+  };
   const {
     register,
     handleSubmit,
@@ -57,10 +82,20 @@ export const EditMedicineModal: React.FC<EditMedicineModalProps> = ({
     }
   });
 
+  const updateBatchField = (batchId: string, field: keyof Batch, value: any) => {
+    setEditingBatches(prev => ({
+      ...prev,
+      [batchId]: {
+        ...prev[batchId],
+        [field]: value
+      }
+    }));
+  };
   const onSubmit = async (data: EditMedicineFormData) => {
     setLoading(true);
     
     try {
+      // Update medicine
       const updatedMedicine: Medicine = {
         ...medicine,
         ...data,
@@ -68,6 +103,17 @@ export const EditMedicineModal: React.FC<EditMedicineModalProps> = ({
       };
 
       await db.medicines.update(medicine.id, updatedMedicine);
+      
+      // Update batches
+      for (const batch of batches) {
+        const editedBatch = editingBatches[batch.id];
+        if (editedBatch) {
+          await db.batches.update(batch.id, {
+            ...editedBatch,
+            expiryDate: new Date(editedBatch.expiryDate)
+          });
+        }
+      }
       
       addNotification('success', `Medicine ${data.brandName || data.name} updated successfully`);
       onMedicineUpdated();
@@ -82,7 +128,7 @@ export const EditMedicineModal: React.FC<EditMedicineModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-3">
@@ -262,6 +308,165 @@ export const EditMedicineModal: React.FC<EditMedicineModalProps> = ({
             />
           </div>
 
+          {/* Batch Information */}
+          {batches.length > 0 && (
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center space-x-2">
+                <Package className="w-5 h-5 text-green-600" />
+                <span>Batch Information ({batches.length} batches)</span>
+              </h3>
+              
+              <div className="space-y-4">
+                {batches.map((batch) => {
+                  const editingBatch = editingBatches[batch.id];
+                  if (!editingBatch) return null;
+                  
+                  return (
+                    <div key={batch.id} className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                      <h4 className="font-medium text-gray-900 mb-4">
+                        Batch: {batch.batchNumber}
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Batch Number */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Batch Number
+                          </label>
+                          <input
+                            type="text"
+                            value={editingBatch.batchNumber}
+                            onChange={(e) => updateBatchField(batch.id, 'batchNumber', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        {/* Expiry Date */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Expiry Date
+                          </label>
+                          <input
+                            type="date"
+                            value={editingBatch.expiryDate ? format(new Date(editingBatch.expiryDate), 'yyyy-MM-dd') : ''}
+                            onChange={(e) => updateBatchField(batch.id, 'expiryDate', e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        {/* MRP */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            MRP (₹)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editingBatch.mrp}
+                            onChange={(e) => updateBatchField(batch.id, 'mrp', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        {/* Selling Price */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Selling Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editingBatch.sellingPrice}
+                            onChange={(e) => updateBatchField(batch.id, 'sellingPrice', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        {/* Purchase Price */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Purchase Price (₹)
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editingBatch.purchasePrice}
+                            onChange={(e) => updateBatchField(batch.id, 'purchasePrice', parseFloat(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        {/* Current Stock */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Current Stock
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editingBatch.currentStock}
+                            onChange={(e) => updateBatchField(batch.id, 'currentStock', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        {/* Min Stock */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Min Stock
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editingBatch.minStock}
+                            onChange={(e) => updateBatchField(batch.id, 'minStock', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                        
+                        {/* Max Stock */}
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Max Stock
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={editingBatch.maxStock}
+                            onChange={(e) => updateBatchField(batch.id, 'maxStock', parseInt(e.target.value) || 0)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                        </div>
+                      </div>
+                      
+                      {/* Batch Status */}
+                      <div className="mt-4 flex items-center justify-between">
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <span>Supplier: {batch.supplierId}</span>
+                          <span>Received: {format(new Date(batch.receivedDate), 'MMM dd, yyyy')}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            editingBatch.currentStock === 0 
+                              ? 'bg-red-100 text-red-700' 
+                              : editingBatch.currentStock <= editingBatch.minStock
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {editingBatch.currentStock === 0 ? 'Out of Stock' : 
+                             editingBatch.currentStock <= editingBatch.minStock ? 'Low Stock' : 'In Stock'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
           {/* Actions */}
           <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
             <button
@@ -281,7 +486,7 @@ export const EditMedicineModal: React.FC<EditMedicineModalProps> = ({
               ) : (
                 <Save className="w-4 h-4" />
               )}
-              <span>{loading ? 'Updating...' : 'Update Medicine'}</span>
+              <span>{loading ? 'Updating...' : 'Update Medicine & Batches'}</span>
             </button>
           </div>
         </form>
