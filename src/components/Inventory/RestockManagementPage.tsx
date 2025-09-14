@@ -19,8 +19,13 @@ import { format } from 'date-fns';
 interface RestockItem {
   medicine: Medicine;
   totalStock?: number;
-  quantity: number;
+  batches: RestockBatch[];
+}
+
+interface RestockBatch {
+  id: string;
   batchNumber: string;
+  quantity: number;
   expiryDate: string;
   purchasePrice: number;
   sellingPrice: number;
@@ -154,19 +159,22 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
       // Get latest batch data for better defaults
       const latestBatch = await getLatestBatchData(medicine.id);
       
-      // Add to restock cart with current/latest values
+      // Add to restock cart with initial batch
       const restockItem: RestockItem = {
         medicine,
         totalStock: medicine.totalStock,
-        quantity: 100,
-        batchNumber: `BATCH-${Date.now()}-${medicine.id.slice(-4)}`,
-        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 1 year from now
-        purchasePrice: latestBatch?.purchasePrice || 0,
-        sellingPrice: latestBatch?.sellingPrice || 0,
-        mrp: latestBatch?.mrp || 0,
-        minStock: 10,
-        maxStock: 500,
-        supplierId: 'DEFAULT'
+        batches: [{
+          id: crypto.randomUUID(),
+          batchNumber: `BATCH-${Date.now()}-${medicine.id.slice(-4)}`,
+          quantity: 100,
+          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+          purchasePrice: latestBatch?.purchasePrice || 0,
+          sellingPrice: latestBatch?.sellingPrice || 0,
+          mrp: latestBatch?.mrp || 0,
+          minStock: 10,
+          maxStock: 500,
+          supplierId: 'DEFAULT'
+        }]
       };
       setRestockCart(prev => [...prev, restockItem]);
     } else {
@@ -187,6 +195,61 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
     );
   };
 
+  const addBatchToMedicine = (medicineId: string) => {
+    setRestockCart(prev => 
+      prev.map(item => {
+        if (item.medicine.id === medicineId) {
+          const newBatch: RestockBatch = {
+            id: crypto.randomUUID(),
+            batchNumber: `BATCH-${Date.now()}-${medicineId.slice(-4)}`,
+            quantity: 100,
+            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            purchasePrice: item.batches[0]?.purchasePrice || 0,
+            sellingPrice: item.batches[0]?.sellingPrice || 0,
+            mrp: item.batches[0]?.mrp || 0,
+            minStock: 10,
+            maxStock: 500,
+            supplierId: 'DEFAULT'
+          };
+          return { ...item, batches: [...item.batches, newBatch] };
+        }
+        return item;
+      })
+    );
+  };
+
+  const updateBatch = (medicineId: string, batchId: string, updates: Partial<RestockBatch>) => {
+    setRestockCart(prev => 
+      prev.map(item => {
+        if (item.medicine.id === medicineId) {
+          return {
+            ...item,
+            batches: item.batches.map(batch => 
+              batch.id === batchId ? { ...batch, ...updates } : batch
+            )
+          };
+        }
+        return item;
+      })
+    );
+  };
+
+  const deleteBatch = (medicineId: string, batchId: string) => {
+    setRestockCart(prev => 
+      prev.map(item => {
+        if (item.medicine.id === medicineId) {
+          const updatedBatches = item.batches.filter(batch => batch.id !== batchId);
+          // If no batches left, remove the entire medicine from cart
+          if (updatedBatches.length === 0) {
+            return null;
+          }
+          return { ...item, batches: updatedBatches };
+        }
+        return item;
+      }).filter(Boolean) as RestockItem[]
+    );
+  };
+
   const removeFromCart = (medicineId: string) => {
     setRestockCart(prev => prev.filter(item => item.medicine.id !== medicineId));
     const newSelected = new Set(selectedMedicines);
@@ -195,7 +258,11 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
   };
 
   const calculateTotalCost = () => {
-    return restockCart.reduce((total, item) => total + (item.quantity * item.purchasePrice), 0);
+    return restockCart.reduce((total, item) => 
+      total + item.batches.reduce((batchTotal, batch) => 
+        batchTotal + (batch.quantity * batch.purchasePrice), 0
+      ), 0
+    );
   };
 
   const processRestock = async () => {
@@ -208,23 +275,25 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
 
     try {
       for (const item of restockCart) {
-        // Create new batch
-        const newBatch: Batch = {
-          id: crypto.randomUUID(),
-          medicineId: item.medicine.id,
-          batchNumber: item.batchNumber,
-          expiryDate: new Date(item.expiryDate),
-          mrp: item.mrp,
-          purchasePrice: item.purchasePrice,
-          sellingPrice: item.sellingPrice,
-          currentStock: item.quantity,
-          minStock: item.minStock,
-          maxStock: item.maxStock,
-          supplierId: item.supplierId,
-          receivedDate: new Date()
-        };
+        // Create batches for this medicine
+        for (const batch of item.batches) {
+          const newBatch: Batch = {
+            id: crypto.randomUUID(),
+            medicineId: item.medicine.id,
+            batchNumber: batch.batchNumber,
+            expiryDate: new Date(batch.expiryDate),
+            mrp: batch.mrp,
+            purchasePrice: batch.purchasePrice,
+            sellingPrice: batch.sellingPrice,
+            currentStock: batch.quantity,
+            minStock: batch.minStock,
+            maxStock: batch.maxStock,
+            supplierId: batch.supplierId,
+            receivedDate: new Date()
+          };
 
-        await db.batches.add(newBatch);
+          await db.batches.add(newBatch);
+        }
       }
 
       addNotification('success', `Successfully restocked ${restockCart.length} medicines`);
