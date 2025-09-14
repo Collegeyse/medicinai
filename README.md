@@ -1,1 +1,1 @@
-# medicinai
+medicinai
