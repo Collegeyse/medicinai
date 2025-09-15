@@ -29,6 +29,8 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
   const [restockCart, setRestockCart] = useState<RestockItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Medicine[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Medicine[]>([]);
   const { addNotification } = usePharmacyStore();
 
   // Load pending restock items from localStorage on component mount
@@ -86,6 +88,33 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
     }
   };
 
+  // Search medicines when query changes
+  useEffect(() => {
+    if (searchQuery.length > 2) {
+      searchMedicines();
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
+
+  const searchMedicines = async () => {
+    try {
+      const results = await db.medicines
+        .filter(medicine => 
+          medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          medicine.brandName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          medicine.manufacturer?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .limit(10)
+        .toArray();
+      
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching medicines:', error);
+      addNotification('error', 'Failed to search medicines');
+    }
+  };
+
   const addMedicineToCart = (medicine: Medicine) => {
     // Check if medicine is already in cart
     const existingMedicine = restockCart.find(item => item.id === medicine.id);
@@ -110,6 +139,8 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
     };
 
     setRestockCart(prev => [...prev, newRestockItem]);
+    setSearchQuery('');
+    setSearchResults([]);
     setSearchQuery('');
     setSearchResults([]);
     addNotification('success', `${medicine.brandName || medicine.name} added to restock cart`);
@@ -225,6 +256,69 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Medicine Search */}
+        <div className="lg:col-span-2 mb-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Add Medicines to Restock</h2>
+            
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search medicines by name, brand, or manufacturer..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            {/* Search Results */}
+            {searchResults.length > 0 && (
+              <div className="mt-4 border border-gray-200 rounded-lg divide-y divide-gray-200 max-h-60 overflow-y-auto">
+                {searchResults.map((medicine) => (
+                  <div key={medicine.id} className="p-4 hover:bg-gray-50">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3 mb-1">
+                          <h3 className="font-medium text-gray-900">{medicine.brandName || medicine.name}</h3>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            medicine.scheduleType === 'H1' 
+                              ? 'bg-red-100 text-red-700' 
+                              : medicine.scheduleType === 'H'
+                              ? 'bg-orange-100 text-orange-700'
+                              : medicine.scheduleType === 'X'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-green-100 text-green-700'
+                          }`}>
+                            {medicine.scheduleType}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600">{medicine.name}</p>
+                        <p className="text-xs text-gray-500">Manufacturer: {medicine.manufacturer}</p>
+                      </div>
+                      <button
+                        onClick={() => addMedicineToCart(medicine)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-1"
+                      >
+                        <Plus className="w-4 h-4" />
+                        <span>Add</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* No Results */}
+            {searchQuery.length > 2 && searchResults.length === 0 && (
+              <div className="mt-4 text-center py-4 text-gray-500">
+                <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p>No medicines found for "{searchQuery}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Restock Cart */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="p-6 border-b border-gray-200">
