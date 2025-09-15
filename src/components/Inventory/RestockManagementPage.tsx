@@ -442,13 +442,10 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
               <h2 className="text-lg font-semibold text-gray-800">Quick Actions</h2>
             </div>
             <div className="p-6">
-              <button
-                onClick={() => setShowAddMedicine(true)}
-                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
-              >
-                <Plus className="w-5 h-5" />
-                Add New Medicine
-              </button>
+              <div className="text-center text-gray-500">
+                <Package className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm">Use the search bar above to add medicines to restock</p>
+              </div>
             </div>
           </div>
         </div>
