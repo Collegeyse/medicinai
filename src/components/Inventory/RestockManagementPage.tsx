@@ -68,51 +68,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
     }
   }, [searchQuery]);
 
-  const searchMedicines = async () => {
-    try {
-      const results = await db.medicines
-        .filter(medicine => 
-          medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          medicine.brandName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          medicine.manufacturer?.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        .limit(10)
-        .toArray();
-      
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Error searching medicines:', error);
-      addNotification('error', 'Failed to search medicines');
-    }
-  };
-
-  // Search medicines when query changes
-  useEffect(() => {
-    if (searchQuery.length > 2) {
-      searchMedicines();
-    } else {
-      setSearchResults([]);
-    }
-  }, [searchQuery]);
-
-  const searchMedicines = async () => {
-    try {
-      const results = await db.medicines
-        .filter(medicine => 
-          medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          medicine.brandName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          medicine.manufacturer?.toLowerCase().includes(searchQuery.toLowerCase())
-        )
-        .limit(10)
-        .toArray();
-      
-      setSearchResults(results);
-    } catch (error) {
-      console.error('Error searching medicines:', error);
-      addNotification('error', 'Failed to search medicines');
-    }
-  };
-
   const addMedicineToCart = (medicine: Medicine) => {
     // Check if medicine is already in cart
     const existingMedicine = restockCart.find(item => item.id === medicine.id);
