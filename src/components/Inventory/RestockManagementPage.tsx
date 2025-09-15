@@ -29,8 +29,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
   const [restockCart, setRestockCart] = useState<RestockItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Medicine[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<Medicine[]>([]);
   const { addNotification } = usePharmacyStore();
 
   // Load pending restock items from localStorage on component mount
