@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Plus, Trash2, Package, ShoppingCart, DollarSign, Calendar, Hash, Users } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Package, ShoppingCart, DollarSign, Calendar, Hash, Users, Search } from 'lucide-react';
+import { db } from '../../database';
+import { Medicine } from '../../types';
+import { usePharmacyStore } from '../../store';
 
 interface RestockManagementPageProps {
   onBack: () => void;
@@ -24,7 +27,9 @@ interface RestockItem {
 
 export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ onBack }) => {
   const [restockCart, setRestockCart] = useState<RestockItem[]>([]);
-  const [showAddMedicine, setShowAddMedicine] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Medicine[]>([]);
+  const { addNotification } = usePharmacyStore();
 
   // Load pending restock items from localStorage on component mount
   useEffect(() => {
@@ -53,6 +58,62 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
       }
     }
   }, []);
+
+  // Search medicines when query changes
+  useEffect(() => {
+    if (searchQuery.length > 2) {
+      searchMedicines();
+    } else {
+      setSearchResults([]);
+    }
+  }, [searchQuery]);
+
+  const searchMedicines = async () => {
+    try {
+      const results = await db.medicines
+        .filter(medicine => 
+          medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          medicine.brandName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          medicine.manufacturer?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .limit(10)
+        .toArray();
+      
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching medicines:', error);
+      addNotification('error', 'Failed to search medicines');
+    }
+  };
+
+  const addMedicineToCart = (medicine: Medicine) => {
+    // Check if medicine is already in cart
+    const existingMedicine = restockCart.find(item => item.id === medicine.id);
+    if (existingMedicine) {
+      addNotification('warning', `${medicine.brandName || medicine.name} is already in restock cart`);
+      return;
+    }
+
+    const newRestockItem: RestockItem = {
+      id: medicine.id,
+      name: medicine.brandName || medicine.name,
+      manufacturer: medicine.manufacturer || 'Unknown',
+      batches: [{
+        id: Date.now().toString(),
+        batchNumber: `BATCH-${Date.now()}`,
+        quantity: 50,
+        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        mrp: 100,
+        sellingPrice: 90,
+        purchasePrice: 70
+      }]
+    };
+
+    setRestockCart(prev => [...prev, newRestockItem]);
+    setSearchQuery('');
+    setSearchResults([]);
+    addNotification('success', `${medicine.brandName || medicine.name} added to restock cart`);
+  };
 
   const addBatch = (medicineId: string) => {
     setRestockCart(prev => prev.map(item => {
