@@ -45,9 +45,7 @@ interface RestockManagementPageProps {
 
 export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ onBack }) => {
   const [medicines, setMedicines] = useState<MedicineWithStock[]>([]);
-  const [selectedMedicines, setSelectedMedicines] = useState<Set<string>>(new Set());
   const [restockCart, setRestockCart] = useState<RestockItem[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [showAddMedicine, setShowAddMedicine] = useState(false);
@@ -94,7 +92,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
         const newRestockCart: RestockItem[] = [];
         
         items.forEach((item: any) => {
-          newSelected.add(item.medicineId);
           newRestockCart.push({
             medicine: item.medicine,
             batches: [{
@@ -112,7 +109,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
           });
         });
         
-        setSelectedMedicines(newSelected);
         setRestockCart(newRestockCart);
         
         // Clear the pending items
@@ -153,40 +149,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
     }
   };
 
-  const handleMedicineSelect = async (medicine: MedicineWithStock, checked: boolean) => {
-    const newSelected = new Set(selectedMedicines);
-    
-    if (checked) {
-      newSelected.add(medicine.id);
-      
-      // Get latest batch data for better defaults
-      const latestBatch = await getLatestBatchData(medicine.id);
-      
-      // Add to restock cart with initial batch
-      const restockItem: RestockItem = {
-        medicine,
-        totalStock: medicine.totalStock,
-        batches: [{
-          id: crypto.randomUUID(),
-          batchNumber: `BATCH-${Date.now()}-${medicine.id.slice(-4)}`,
-          quantity: 100,
-          expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          purchasePrice: latestBatch?.purchasePrice || 0,
-          sellingPrice: latestBatch?.sellingPrice || 0,
-          mrp: latestBatch?.mrp || 0,
-          minStock: 10,
-          maxStock: 500,
-          supplierId: 'DEFAULT'
-        }]
-      };
-      setRestockCart(prev => [...prev, restockItem]);
-    } else {
-      newSelected.delete(medicine.id);
-      setRestockCart(prev => prev.filter(item => item.medicine.id !== medicine.id));
-    }
-    
-    setSelectedMedicines(newSelected);
-  };
 
   const updateRestockItem = (medicineId: string, updates: Partial<RestockItem>) => {
     setRestockCart(prev => 
@@ -255,9 +217,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
 
   const removeFromCart = (medicineId: string) => {
     setRestockCart(prev => prev.filter(item => item.medicine.id !== medicineId));
-    const newSelected = new Set(selectedMedicines);
-    newSelected.delete(medicineId);
-    setSelectedMedicines(newSelected);
   };
 
   const calculateTotalCost = () => {
@@ -301,7 +260,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
 
       addNotification('success', `Successfully restocked ${restockCart.length} medicines`);
       setRestockCart([]);
-      setSelectedMedicines(new Set());
       onBack();
     } catch (error) {
       console.error('Error processing restock:', error);
@@ -311,11 +269,6 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
     }
   };
 
-  const filteredMedicines = medicines.filter(medicine =>
-    medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    medicine.brandName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    medicine.manufacturer?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -349,115 +302,8 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column - Medicine Selection */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Search */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <input
-                  type="text"
-                  placeholder="Search medicines to restock..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            {/* Medicine List */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Available Medicines ({filteredMedicines.length})
-                  </h2>
-                  <button
-                    onClick={() => setShowAddMedicine(true)}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors text-sm"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Add New Medicine
-                  </button>
-                </div>
-              </div>
-
-              <div className="max-h-96 overflow-y-auto">
-                {loading ? (
-                  <div className="p-8 text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600">Loading medicines...</p>
-                  </div>
-                ) : filteredMedicines.length === 0 ? (
-                  <div className="p-8 text-center">
-                    <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-600">No medicines found</p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-gray-200">
-                    {filteredMedicines.map((medicine) => (
-                      <div key={medicine.id} className="p-4 hover:bg-gray-50 transition-colors">
-                        <div className="flex items-start space-x-4">
-                          <div className="flex items-center h-5 mt-1">
-                            <input
-                              type="checkbox"
-                              checked={selectedMedicines.has(medicine.id)}
-                              onChange={(e) => handleMedicineSelect(medicine, e.target.checked)}
-                              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                            />
-                          </div>
-                          
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center space-x-2 mb-1">
-                              <h3 className="font-medium text-gray-900">
-                                {medicine.brandName || medicine.name}
-                              </h3>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                medicine.totalStock === 0 
-                                  ? 'bg-red-100 text-red-700' 
-                                  : medicine.totalStock <= 10
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-green-100 text-green-700'
-                              }`}>
-                                {medicine.totalStock} units
-                              </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                medicine.scheduleType === 'H1' 
-                                  ? 'bg-red-100 text-red-700' 
-                                  : medicine.scheduleType === 'H'
-                                  ? 'bg-orange-100 text-orange-700'
-                                  : 'bg-green-100 text-green-700'
-                              }`}>
-                                {medicine.scheduleType}
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600">{medicine.name}</p>
-                            <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                              <span>Manufacturer: {medicine.manufacturer}</span>
-                              <span className={`font-medium ${
-                                medicine.totalStock === 0 
-                                  ? 'text-red-600' 
-                                  : medicine.totalStock <= 10
-                                  ? 'text-yellow-600'
-                                  : 'text-green-600'
-                              }`}>
-                                Current Stock: {medicine.totalStock}
-                              </span>
-                              <span>HSN: {medicine.hsn}</span>
-                              <span>GST: {medicine.gst}%</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Column - Restock Cart */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Left Column - Restock Cart */}
           <div className="space-y-6">
             {/* Restock Cart */}
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -525,6 +371,8 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
               )}
             </div>
 
+          {/* Right Column - Order Summary and Actions */}
+          <div className="space-y-6">
             {/* Order Summary */}
             {restockCart.length > 0 && (
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
@@ -538,7 +386,9 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
                   <div className="flex justify-between">
                     <span>Total Quantity:</span>
                     <span className="font-medium">
-                      {restockCart.reduce((sum, item) => sum + item.quantity, 0)} units
+                      {restockCart.reduce((sum, item) => 
+                        sum + item.batches.reduce((batchSum, batch) => batchSum + batch.quantity, 0), 0
+                      )} units
                     </span>
                   </div>
                   <div className="flex justify-between border-t border-gray-200 pt-3">
@@ -569,23 +419,11 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
               <div className="space-y-3">
                 <button
-                  onClick={() => {
-                    // Select all low stock medicines
-                    const lowStockMedicines = medicines.filter(m => {
-                      // This would need to check actual stock levels
-                      return true; // Simplified for now
-                    });
-                    lowStockMedicines.forEach(medicine => {
-                      if (!selectedMedicines.has(medicine.id)) {
-                        handleMedicineSelect(medicine, true);
-                      }
-                    });
-                    addNotification('info', 'Added all low stock medicines to cart');
-                  }}
-                  className="w-full bg-yellow-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-yellow-700 transition-colors flex items-center justify-center space-x-2"
+                  onClick={() => setShowAddMedicine(true)}
+                  className="w-full bg-green-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
                 >
-                  <AlertTriangle className="w-4 h-4" />
-                  <span>Add All Low Stock</span>
+                  <Plus className="w-4 h-4" />
+                  <span>Add New Medicine</span>
                 </button>
                 
                 <button
