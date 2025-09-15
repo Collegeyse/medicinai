@@ -4,6 +4,7 @@ import { db } from '../../database';
 import { Medicine, Batch } from '../../types';
 import { usePharmacyStore } from '../../store';
 import { AddMedicinePage } from './AddMedicinePage';
+import { AddBatchPage } from './AddBatchPage';
 import { EditMedicineModal } from './EditMedicineModal';
 import { format } from 'date-fns';
 
@@ -18,6 +19,7 @@ export const InventoryList: React.FC = () => {
   const [medicinesWithStock, setMedicinesWithStock] = useState<MedicineWithStock[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddPage, setShowAddPage] = useState(false);
+  const [showAddBatchPage, setShowAddBatchPage] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingMedicine, setEditingMedicine] = useState<Medicine | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<Medicine | null>(null);
@@ -70,6 +72,7 @@ export const InventoryList: React.FC = () => {
   const handleMedicineAdded = () => {
     fetchMedicinesWithStock(); // Refresh the list
     setShowAddPage(false);
+    setShowAddBatchPage(false);
   };
 
   const handleEditMedicine = (medicine: Medicine) => {
@@ -134,6 +137,14 @@ export const InventoryList: React.FC = () => {
     );
   }
 
+  if (showAddBatchPage) {
+    return (
+      <AddBatchPage
+        onBack={() => setShowAddBatchPage(false)}
+      />
+    );
+  }
+
   if (loading) {
     return <div className="p-6 text-center">Loading inventory...</div>;
   }
@@ -145,13 +156,22 @@ export const InventoryList: React.FC = () => {
           <h1 className="text-2xl font-bold text-gray-900">Inventory Management</h1>
           <p className="text-gray-600">Manage your medicine stock and batches.</p>
         </div>
-        <button
-          onClick={() => setShowAddPage(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add Medicine
-        </button>
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowAddBatchPage(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          >
+            <Package className="w-4 h-4" />
+            Add New Batches
+          </button>
+          <button
+            onClick={() => setShowAddPage(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Medicine
+          </button>
+        </div>
       </div>
 
       {/* Search and Stats */}
