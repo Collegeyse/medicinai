@@ -31,6 +31,24 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
   const [searchResults, setSearchResults] = useState<Medicine[]>([]);
   const { addNotification } = usePharmacyStore();
 
+  // Search medicines function
+  const searchMedicines = async () => {
+    try {
+      const results = await db.medicines
+        .filter(medicine =>
+          medicine.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (medicine.brandName && medicine.brandName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+          (medicine.manufacturer && medicine.manufacturer.toLowerCase().includes(searchQuery.toLowerCase()))
+        )
+        .limit(10)
+        .toArray();
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error searching medicines:', error);
+      setSearchResults([]);
+    }
+  };
+
   // Load pending restock items from localStorage on component mount
   useEffect(() => {
     const pendingRestock = localStorage.getItem('pendingRestockItems');
