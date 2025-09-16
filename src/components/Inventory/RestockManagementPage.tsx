@@ -63,6 +63,7 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
             id: Date.now().toString(),
             batchNumber: `BATCH-${Date.now()}`,
             quantity: item.quantity || 50,
+            quantity: item.suggestedQuantity || item.quantity || 50,
             expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
             mrp: item.mrp || 100,
             sellingPrice: item.sellingPrice || 90,
