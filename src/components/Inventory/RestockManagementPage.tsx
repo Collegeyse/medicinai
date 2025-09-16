@@ -57,8 +57,8 @@ export const RestockManagementPage: React.FC<RestockManagementPageProps> = ({ on
         const items = JSON.parse(pendingRestock);
         const formattedItems: RestockItem[] = items.map((item: any) => ({
           id: item.id || Date.now().toString(),
-          name: item.name,
-          manufacturer: item.manufacturer || 'Unknown',
+          name: item.medicine?.brandName || item.medicine?.name || item.medicineName || 'Unknown Medicine',
+          manufacturer: item.medicine?.manufacturer || 'Unknown',
           batches: [{
             id: Date.now().toString(),
             batchNumber: `BATCH-${Date.now()}`,
