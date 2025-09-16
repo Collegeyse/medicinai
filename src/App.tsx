@@ -72,11 +72,13 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <Header />
       <div className="flex">
         <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
         <main className="flex-1 lg:ml-0">
-          {renderContent()}
+          <div>
+            <Header setActiveTab={setActiveTab} />
+            {renderContent()}
+          </div>
         </main>
       </div>
       <NotificationToast />

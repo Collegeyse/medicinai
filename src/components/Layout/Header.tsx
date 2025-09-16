@@ -3,7 +3,11 @@ import { Search, Bell, User, Menu, ShoppingCart, Plus } from 'lucide-react';
 import { usePharmacyStore } from '../../store';
 import { HeaderSearch } from './HeaderSearch';
 
-export const Header: React.FC = () => {
+interface HeaderProps {
+  setActiveTab: (tab: string) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ setActiveTab }) => {
   const { 
     sidebarOpen, 
     setSidebarOpen, 
@@ -44,7 +48,10 @@ export const Header: React.FC = () => {
         {/* Right section */}
         <div className="flex items-center space-x-3">
           {/* Cart */}
-          <button className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg">
+          <button 
+            onClick={() => setActiveTab('sales')}
+            className="relative p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+          >
             <ShoppingCart className="w-5 h-5" />
             {cartItems.length > 0 && (
               <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
